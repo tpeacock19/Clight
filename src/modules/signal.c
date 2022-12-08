@@ -4,6 +4,7 @@
 
 DECLARE_MSG(suspend_req, SUSPEND_REQ);
 DECLARE_MSG(capture_req, CAPTURE_REQ);
+DECLARE_MSG(calib_req, NO_AUTOCALIB_REQ);
 
 MODULE("SIGNAL");
 
@@ -58,10 +59,14 @@ static void receive(const msg_t *const msg, UNUSED const void* userdata) {
         case SIGTSTP:
             suspend_req.suspend.new = true;
             M_PUB(&suspend_req);
+            calib_req.nocalib.new = true;
+            M_PUB(&calib_req);
             break;
         case SIGCONT:
             suspend_req.suspend.new = false;
             M_PUB(&suspend_req);
+            calib_req.nocalib.new = false;
+            M_PUB(&calib_req);
             break;
         case SIGUSR1:
             M_PUB(&capture_req);
