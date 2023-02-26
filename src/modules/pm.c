@@ -136,12 +136,11 @@ static int parse_bus_reply(sd_bus_message *reply, const char *member,
         int r = sd_bus_message_read(reply, "h", &f);
         if (r >= 0) {
             pm_inh_token = fcntl(f, F_DUPFD_CLOEXEC, 3);
-            return r;
         }
+        return r;
     }
     case POWERMANAGEMENT: {
-        int r = sd_bus_message_read(reply, "u", userdata);
-        return r;
+        return sd_bus_message_read(reply, "u", userdata);
     }
     case NONE: {
         return -EINVAL;
@@ -168,19 +167,18 @@ static bool acquire_systemd_lock(void) {
     SYSBUS_ARG_REPLY(pm_args, parse_bus_reply, &pm_inh_token,
                      "org.freedesktop.login1", "/org/freedesktop/login1",
                      "org.freedesktop.login1.Manager", "Inhibit");
-    int ret =
-        call(&pm_args, "ssss", "idle", "Clight", "Idle inhibitor.", "block");
-    if (ret < 0) {
-        inh_api = NONE;
-        DEBUG("Failed to parse systemd-inhibit D-Bus response.\n");
-    } else if (pm_inh_token < 0) {
-        inh_api = NONE;
-        DEBUG("Failed to copy lock file\n");
-    } else {
+    int ret = call(&pm_args, "ssss", "idle", "Clight", "Idle inhibitor.", "block");
+    if (ret == 0 && pm_inh_token > 0) {
         DEBUG("Holding inhibition with systemd-inhibit.\n");
         return true;
     }
+    
     inh_api = NONE;
+    if (ret < 0) {
+        DEBUG("Failed to parse systemd-inhibit D-Bus response.\n");
+    } else {
+        DEBUG("Failed to copy lock file\n");
+    }
     return false;
 }
 
@@ -191,14 +189,12 @@ static bool acquire_pm_lock(void) {
                      "/org/freedesktop/PowerManagement/Inhibit",
                      "org.freedesktop.PowerManagement.Inhibit", 
                      "Inhibit");
-    if (call(&pm_args, "ss", "Clight", "Idle inhibitor.", "block") != 0) {
-        DEBUG("Failed to parse PowerManagement D-Bus response.\n");
-        inh_api = NONE;
-    } else {
+    if (call(&pm_args, "ss", "Clight", "Idle inhibitor.", "block") == 0) {
         DEBUG("Holding inhibition with PowerManagement.\n");
         return true;
     }
     inh_api = NONE;
+    DEBUG("Failed to parse PowerManagement D-Bus response.\n");
     return false;
 }
 
